@@ -1,1 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stag Do Spinner</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at top, #1f1147, #0b0620 70%);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 15px 60px;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    margin-bottom: 5px;
+    text-shadow: 0 0 15px #ffcc00;
+    text-align: center;
+  }
+
+  .subtitle {
+    opacity: 0.7;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  /* Hidden rig button - top right, near invisible */
+  #rigBtn {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 999;
+    opacity: 0; /* fully invisible but clickable */
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 500px;
+  }
+
+  input[type="text"] {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: none;
+    font-size: 1rem;
+    width: 220px;
+  }
+
+  button {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: none;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+
+  button:active { transform: scale(0.95); }
+
+  #addBtn {
+    background: #ffcc00;
+    color: #1f1147;
+  }
+
+  .name-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-width: 600px;
+    justify-content: center;
+  }
+
+  .name-list li {
+    background: rgba(255,255,255,0.1);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .name-list li button {
+    background: #ff4d4d;
+    color: white;
+    padding: 0 6px;
+    border-radius: 50%;
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+
+  .wheel-wrap {
+    position: relative;
+    width: 340px;
+    height: 340px;
+    max-width: 90vw;
+    max-height: 90vw;
+    margin: 10px auto 30px;
+  }
+
+  #wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 6px solid #ffcc00;
+    box-shadow: 0 0 30px rgba(255,204,0,0.5);
+    transition: transform 4s cubic-bezier(0.15, 0.85, 0.25, 1);
+    transform: rotate(0deg);
+    position: relative;
+  }
+
+  .pointer {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 24px solid #ff4d4d;
+    z-index: 10;
+    filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));
+  }
+
+  #spinBtn {
+    background: linear-gradient(135deg, #ff4d4d, #ff8800);
+    color: white;
+    font-size: 1.3rem;
+    padding: 14px 40px;
+    border-radius: 50px;
+    box-shadow: 0 0 20px rgba(255,77,77,0.6);
+  }
+
+  #spinBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  #result {
+    margin-top: 25px;
+    font-size: 1.8rem;
+    font-weight: bold;
+    min-height: 2.5rem;
+    text-align: center;
+    text-shadow: 0 0 20px #ffcc00;
+  }
+
+  canvas#confetti {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 500;
+  }
+</style>
+</head>
+<body>
+
+<button id="rigBtn" title=""></button>
+
+<h1>🍻 Stag Do Wheel of Destiny 🍻</h1>
+<p class="subtitle">Add the lads, spin the wheel, obey the outcome.</p>
+
+<div class="controls">
+  <input type="text" id="nameInput" placeholder="Enter a name..." maxlength="20">
+  <button id="addBtn">Add Name</button>
+</div>
+
+<ul class="name-list" id="nameList"></ul>
+
+<div class="wheel-wrap">
+  <div class="pointer"></div>
+  <canvas id="wheel" width="340" height="340"></canvas>
+</div>
+
+<button id="spinBtn">SPIN THE WHEEL</button>
+
+<div id="result"></div>
+
+<canvas id="confetti"></canvas>
+
+<script>
+(function(){
+  const nameInput = document.getElementById('nameInput');
+  const addBtn = document.getElementById('addBtn');
+  const nameListEl = document.getElementById('nameList');
+  const wheelCanvas = document.getElementById('wheel');
+  const ctx = wheelCanvas.getContext('2d');
+  const spinBtn = document.getElementById('spinBtn');
+  const resultEl = document.getElementById('result');
+  const rigBtn = document.getElementById('rigBtn');
+
+  let names = [];
+  let currentRotation = 0;
+  let spinning = false;
+  let rigged = false; // when true, next spin forced to Jason
+
+  const colors = ['#ff4d4d','#ff8800','#ffcc00','#7ed957','#4dd0e1','#7c4dff','#ff4dd2','#4d79ff'];
+
+  function ensureJason() {
+    if (!names.some(n => n.toLowerCase() === 'jason')) {
+      names.push('Jason');
+    }
+  }
+
+  function saveRender() {
+    renderList();
+    drawWheel();
+  }
+
+  function renderList() {
+    nameListEl.innerHTML = '';
+    names.forEach((n, i) => {
+      const li = document.createElement('li');
+      li.textContent = n;
+      const rm = document.createElement('button');
+      rm.textContent = '✕';
+      rm.title = 'Remove';
+      rm.onclick = () => {
+        names.splice(i, 1);
+        saveRender();
+      };
+      li.appendChild(rm);
+      nameListEl.appendChild(li);
+    });
+  }
+
+  function drawWheel() {
+    const w = wheelCanvas.width, h = wheelCanvas.height;
+    const cx = w/2, cy = h/2, radius = w/2 - 4;
+    ctx.clearRect(0,0,w,h);
+
+    if (names.length === 0) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI*2);
+      ctx.fillStyle = '#333';
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '16px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.fillText('Add names to begin', cx, cy);
+      return;
+    }
+
+    const slice = (Math.PI*2) / names.length;
+    names.forEach((name, i) => {
+      const start = i*slice;
+      const end = start+slice;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, start, end);
+      ctx.closePath();
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.stroke();
+
+      // label
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(start + slice/2);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = 'bold 14px Segoe UI';
+      ctx.fillText(name, radius - 14, 5);
+      ctx.restore();
+    });
+  }
+
+  function addName() {
+    const val = nameInput.value.trim();
+    if (!val) return;
+    names.push(val);
+    nameInput.value = '';
+    saveRender();
+  }
+
+  addBtn.addEventListener('click', addName);
+  nameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') addName();
+  });
+
+  // Hidden top-right rig button: sets flag so next spin picks Jason
+  rigBtn.addEventListener('click', () => {
+    rigged = true;
+    // subtle visual nudge so the host knows it registered, without giving it away to others
+    rigBtn.style.opacity = '0';
+    spinBtn.style.boxShadow = '0 0 20px rgba(255,77,77,0.6)';
+  });
+
+  function pickIndex() {
+    if (rigged) {
+      ensureJason();
+      const idx = names.findIndex(n => n.toLowerCase() === 'jason');
+      rigged = false;
+      return idx;
+    }
+    return Math.floor(Math.random() * names.length);
+  }
+
+  function spin() {
+    if (spinning) return;
+    if (names.length === 0) {
+      resultEl.textContent = 'Add some names first!';
+      return;
+    }
+    spinning = true;
+    spinBtn.disabled = true;
+    resultEl.textContent = '';
+
+    const winnerIndex = pickIndex();
+    const slice = 360 / names.length;
+
+    // angle so pointer (at top, 0deg) lands in middle of winner slice
+    // wheel slices are drawn starting at angle 0 = 3 o'clock direction in canvas,
+    // rotate() on CSS rotates clockwise from top. We compute target so winner ends at top.
+    const sliceMidDeg = (winnerIndex * slice) + slice/2;
+    const extraSpins = 6; // full rotations for effect
+    // We want final rotation such that pointer at top aligns with winner slice center.
+    // Canvas slice 0 starts at angle 0 (3 o'clock, i.e. -90deg from top). Adjust by -90.
+    const targetAngle = 360*extraSpins + (360 - sliceMidDeg) - 90 + 360; 
+
+    currentRotation += targetAngle - (currentRotation % 360);
+    wheelCanvas.style.transform = `rotate(${currentRotation}deg)`;
+
+    setTimeout(() => {
+      spinning = false;
+      spinBtn.disabled = false;
+      const winner = names[winnerIndex];
+      resultEl.textContent = '🎉 ' + winner + ' 🎉';
+      launchFireworks();
+    }, 4100);
+  }
+
+  spinBtn.addEventListener('click', spin);
+
+  // init
+  drawWheel();
+
+  /* ---------- Confetti / Fireworks ---------- */
+  const confettiCanvas = document.getElementById('confetti');
+  const cctx = confettiCanvas.getContext('2d');
+  function resizeConfetti() {
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+  }
+  resizeConfetti();
+  window.addEventListener('resize', resizeConfetti);
+
+  let particles = [];
+
+  function launchFireworks() {
+    particles = [];
+    const bursts = 3;
+    for (let b = 0; b < bursts; b++) {
+      setTimeout(() => {
+        const originX = Math.random() * confettiCanvas.width;
+        const originY = confettiCanvas.height * (0.2 + Math.random()*0.3);
+        createBurst(originX, originY);
+      }, b * 350);
+    }
+    requestAnimationFrame(animateConfetti);
+  }
+
+  function createBurst(x, y) {
+    const count = 90;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI*2) * (i/count);
+      const speed = 3 + Math.random()*5;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle)*speed,
+        vy: Math.sin(angle)*speed,
+        color: colors[Math.floor(Math.random()*colors.length)],
+        size: 3 + Math.random()*3,
+        life: 100 + Math.random()*30,
+        gravity: 0.08
+      });
+    }
+  }
+
+  function animateConfetti() {
+    cctx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.life -= 1;
+      cctx.globalAlpha = Math.max(p.life/130, 0);
+      cctx.fillStyle = p.color;
+      cctx.beginPath();
+      cctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      cctx.fill();
+    });
+    cctx.globalAlpha = 1;
+    particles = particles.filter(p => p.life > 0);
+
+    if (particles.length > 0) {
+      requestAnimationFrame(animateConfetti);
+    } else {
+      cctx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+    }
+  }
+
+})();
+</script>
+
+</body>
+</html>
 
