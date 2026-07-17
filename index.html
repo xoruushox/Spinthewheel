@@ -33,18 +33,27 @@
     text-align: center;
   }
 
-  /* Hidden rig button - top right, near invisible */
+  /* Badge button - top right, looks decorative but is the Easter egg trigger */
   #rigBtn {
     position: fixed;
-    top: 10px;
-    right: 10px;
-    width: 34px;
-    height: 34px;
-    background: transparent;
+    top: 14px;
+    right: 14px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #ffcc00, #ff8800);
     border: none;
+    border-radius: 20px;
+    color: #1f1147;
+    font-weight: bold;
+    font-size: 0.8rem;
+    letter-spacing: 0.3px;
     cursor: pointer;
     z-index: 999;
-    opacity: 0; /* fully invisible but clickable */
+    box-shadow: 0 0 12px rgba(255,204,0,0.5);
+    transition: transform 0.15s ease;
+  }
+
+  #rigBtn:active {
+    transform: scale(0.95);
   }
 
   .controls {
@@ -179,7 +188,7 @@
 </head>
 <body>
 
-<button id="rigBtn" title=""></button>
+<button id="rigBtn" title="">Let the fun begin</button>
 
 <h1>🍻 Stag Do Wheel of Destiny 🍻</h1>
 <p class="subtitle">Add the lads, spin the wheel, obey the outcome.</p>
@@ -303,12 +312,10 @@
     if (e.key === 'Enter') addName();
   });
 
-  // Hidden top-right rig button: sets flag so next spin picks Jason
+  // "Let the fun begin" badge: looks like a fun decorative button,
+  // secretly arms the wheel to land on Jason on the next spin.
   rigBtn.addEventListener('click', () => {
     rigged = true;
-    // subtle visual nudge so the host knows it registered, without giving it away to others
-    rigBtn.style.opacity = '0';
-    spinBtn.style.boxShadow = '0 0 20px rgba(255,77,77,0.6)';
   });
 
   function pickIndex() {
